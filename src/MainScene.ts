@@ -25,6 +25,7 @@ export default class MainScene extends Phaser.Scene {
     private draggingCard?: DraggingCard;
     private hoveringCard?: HoveringCard;
 
+
     constructor() {
         super('mainScene')
         this.spots = (([{}, {}, {}, {}, {}]) as [CardSpot, CardSpot, CardSpot, CardSpot, CardSpot])
@@ -54,22 +55,55 @@ export default class MainScene extends Phaser.Scene {
 
         // Dynamic texture for cards
 
-        const cardProgrammerTexture = this.textures.addDynamicTexture('card:programmer', 768, 1024)!
-        cardProgrammerTexture.isSpriteTexture = false
-        cardProgrammerTexture.stamp('card-frame', 'card-background', 768 / 2, 1024 / 2, {scaleY: -1})
-        cardProgrammerTexture.stamp('artwork_programmer1', 'card-foreground', 768 / 2 - 22, 1024 / 2 + 284, {
+        const cardProgrammer1Texture = this.textures.addDynamicTexture('card:programmer1', 768, 1024)!
+        cardProgrammer1Texture.isSpriteTexture = false
+        cardProgrammer1Texture.stamp('card-frame', 'card-background', 768 / 2, 1024 / 2, {scaleY: -1})
+        cardProgrammer1Texture.stamp('artwork_programmer1', 'card-foreground', 768 / 2 - 22, 1024 / 2 + 284, {
             scaleY: -0.438,
             scaleX: 0.438
         })
 
+        const programmer1HandCard = this.add.image(2000, 1400, cardProgrammer1Texture)
+        programmer1HandCard.preFX?.setPadding(22)
+        programmer1HandCard.preFX?.addGlow(0x3F4FFF)
+        programmer1HandCard.preFX?.disable()
+        programmer1HandCard.setScale(handCardScale)
+        programmer1HandCard.setInteractive({draggable: true})
 
-        const image = this.add.image(2000, 1200, cardProgrammerTexture)
-        image.preFX?.setPadding(22)
-        image.preFX?.addGlow(0x3F4FFF)
-        image.preFX?.disable()
-        image.setScale(handCardScale)
-        image.setInteractive({draggable: true})
-        this.hand = [{image: image}]
+        const cardProgrammer2Texture = this.textures.addDynamicTexture('card:programmer2', 768, 1024)!
+        cardProgrammer2Texture.isSpriteTexture = false
+        cardProgrammer2Texture.stamp('card-frame', 'card-background', 768 / 2, 1024 / 2, {scaleY: -1})
+        cardProgrammer2Texture.stamp('artwork_programmer2', 'card-foreground', 768 / 2 - 22, 1024 / 2 + 284, {
+            scaleY: -0.438,
+            scaleX: 0.438
+        })
+
+        const programmer2HandCard = this.add.image(1600, 1400, cardProgrammer2Texture)
+        programmer2HandCard.preFX?.setPadding(22)
+        programmer2HandCard.preFX?.addGlow(0x3F4FFF)
+        programmer2HandCard.preFX?.disable()
+        programmer2HandCard.setScale(handCardScale)
+        programmer2HandCard.setInteractive({draggable: true})
+
+        const cardProgrammer3Texture = this.textures.addDynamicTexture('card:programmer3', 768, 1024)!
+        cardProgrammer3Texture.isSpriteTexture = false
+        cardProgrammer3Texture.stamp('card-frame', 'card-background', 768 / 2, 1024 / 2, {scaleY: -1})
+        cardProgrammer3Texture.stamp('artwork_programmer3', 'card-foreground', 768 / 2 - 22, 1024 / 2 + 284, {
+            scaleY: -0.438,
+            scaleX: 0.438
+        })
+
+        const programmer3HandCard = this.add.image(1200, 1400, cardProgrammer3Texture)
+        programmer3HandCard.preFX?.setPadding(22)
+        programmer3HandCard.preFX?.addGlow(0x3F4FFF)
+        programmer3HandCard.preFX?.disable()
+        programmer3HandCard.setScale(handCardScale)
+        programmer3HandCard.setInteractive({draggable: true})
+
+
+        this.hand = [{image: programmer1HandCard}, {image: programmer2HandCard}, {image: programmer3HandCard}]
+
+        this.rearrangeHand()
 
         this.input.on('pointerover', (_event: any, gameObjects: GameObject[]) => {
             let handCardIdx = -1;
@@ -101,18 +135,15 @@ export default class MainScene extends Phaser.Scene {
             if (this.hoveringCard && this.hoveringCard.type == 'hand') {
                 const hoveringCard = this.hoveringCard!
                 if (gameObjects.find(gameObject => hoveringCard.card.image == gameObject)) {
-                    this.tweens.add({
-                        targets: hoveringCard.card.image,
-                        y: hoveringCard.originalY,
-                        ease: 'Cubic',
-                        duration: 200
-                    })
-                    this.hoveringCard = undefined
+                    this.unhoverCard(hoveringCard)
                 }
             }
         })
 
         this.input.on('dragstart', (_pointer: Pointer, gameObject: Image) => {
+
+            // For now, drag takes precedence over hover
+
             const handCardIdx = this.hand.findIndex(c => c.image == gameObject)
             if (handCardIdx != -1) {
                 const handCard = this.hand[handCardIdx];
@@ -121,7 +152,7 @@ export default class MainScene extends Phaser.Scene {
                     type: 'hand',
                     index: handCardIdx,
                     originalX: handCard.image.x,
-                    originalY: handCard.image.y,
+                    originalY: this.hoveringCard?.type == "hand" ? this.hoveringCard?.originalY : handCard.image.y,
                     card: handCard
                 };
 
@@ -158,7 +189,7 @@ export default class MainScene extends Phaser.Scene {
 
         });
 
-        this.input.on('dragend', (_pointer: Pointer, gameObject: Image) => {
+        this.input.on('dragend', (pointer: Pointer, gameObject: Image) => {
 
             if (this.draggingCard?.type == "hand") {
                 // Check if the dragged card overlaps any target spot
@@ -190,6 +221,16 @@ export default class MainScene extends Phaser.Scene {
                         ease: 'Cubic',
                         duration: 100
                     })
+                    this.rearrangeHand()
+                    if (this.hoveringCard) {
+                        if (Rectangle.Contains(overlappedSpot.image.getBounds(), pointer.x, pointer.y)) {
+                            this.hoveringCard = {type: "spot", spot: overlappedSpot, card: this.hoveringCard.card}
+                            this.unhoverCard(this.hoveringCard)
+                        } else {
+                            this.hoveringCard = undefined
+                        }
+
+                    }
                 } else {
                     this.tweens.add({
                         targets: this.draggingCard.card.image,
@@ -200,10 +241,43 @@ export default class MainScene extends Phaser.Scene {
                     })
                 }
                 this.draggingCard = undefined;
-                // This is not necessarily correct, could still be hovering the spot
-                this.hoveringCard?.card.image.preFX?.disable()
-                this.hoveringCard = undefined;
             }
         })
+    }
+
+    unhoverCard(hoveringCard: HoveringCard) {
+        hoveringCard.card.image.preFX?.disable()
+        if (hoveringCard.type == "hand") {
+            this.tweens.add({
+                targets: hoveringCard.card.image,
+                y: hoveringCard.originalY,
+                ease: 'Cubic',
+                duration: 200,
+            })
+        }
+        this.hoveringCard = undefined
+    }
+
+    rearrangeHand() {
+        let isTweening = false
+        this.hand.forEach(handCard => {
+                if (this.tweens.isTweening(handCard.image)) isTweening = true
+            }
+        )
+        if (!isTweening) {
+            const padding = 40
+            this.hand.forEach((handCard, i) => {
+                    const cardWidth = handCard.image.width / devicePixelRatio
+                    const totalWidth = cardWidth * this.hand.length + (this.hand.length - 1) * padding
+                    const targetX = (scaledScreenWidth + cardWidth) / 2 + (i * (cardWidth + padding)) - totalWidth /2
+                    this.tweens.add({
+                        targets: handCard.image,
+                        scale: handCardScale,
+                        x: targetX,
+                        ease: 'Cubic', duration: 250
+                    })
+                }
+            )
+        }
     }
 }
